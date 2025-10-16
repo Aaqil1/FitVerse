@@ -13,6 +13,7 @@ fitverse/
 ├── Makefile                     # Common automation shortcuts
 ├── .env                         # Environment variables consumed by Docker & Spring
 ├── api-gateway/                 # Spring Cloud API gateway module
+├── user-profile-service/        # Profile management microservice
 └── monitoring/
     └── prometheus.yml           # Base Prometheus configuration
 ```
@@ -81,10 +82,14 @@ Use the included `Makefile` for frequently used tasks:
 ```bash
 make build           # mvn clean install
 make test            # mvn verify
-make docker-up       # start infra & services (api-gateway available now)
-make docker-up       # start infra & services (when available)
+make docker-up       # start infra & services (api-gateway and user-profile-service available now)
 make docker-down     # stop and clean containers
 ```
+
+## Available Backend Services
+
+- **API Gateway (Spring Cloud Gateway)** – edge routing, JWT validation, and resiliency patterns for downstream services.
+- **User Profile Service** – secure profile biometrics storage with Flyway migrations and derived BMI values.
 
 ## Roadmap
 
