@@ -12,6 +12,7 @@ fitverse/
 ├── docker-compose.yml           # Local development stack
 ├── Makefile                     # Common automation shortcuts
 ├── .env                         # Environment variables consumed by Docker & Spring
+├── api-gateway/                 # Spring Cloud API gateway module
 └── monitoring/
     └── prometheus.yml           # Base Prometheus configuration
 ```
@@ -43,6 +44,21 @@ fitverse/
    docker compose --env-file .env down --remove-orphans
    ```
 
+## Environment Configuration
+
+Copy the provided `.env` file and adjust secrets or credentials as needed for your local setup. All Docker services consume these environment variables, and Spring Boot services will inherit them automatically when launched via Docker Compose.
+
+```bash
+cp .env .env.local # optional - update values before running compose
+```
+
+To override a value temporarily without editing the file, export it before running any Make or Docker commands:
+
+```bash
+export MYSQL_PASSWORD=MySecurePassword
+make docker-up
+```
+
 ## Observability Endpoints
 
 - Prometheus: [http://localhost:9090](http://localhost:9090)
@@ -65,6 +81,7 @@ Use the included `Makefile` for frequently used tasks:
 ```bash
 make build           # mvn clean install
 make test            # mvn verify
+make docker-up       # start infra & services (api-gateway available now)
 make docker-up       # start infra & services (when available)
 make docker-down     # stop and clean containers
 ```
