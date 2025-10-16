@@ -82,6 +82,7 @@ Use the included `Makefile` for frequently used tasks:
 make build           # mvn clean install
 make test            # mvn verify
 make docker-up       # start infra & services (api-gateway available now)
+make docker-up       # start infra & services (when available)
 make docker-down     # stop and clean containers
 ```
 
