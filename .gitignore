@@ -9,7 +9,6 @@ target/
 node_modules/
 build/
 dist/
-.env
 npm-debug.log
 
 # IDE
