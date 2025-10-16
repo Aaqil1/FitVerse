@@ -1,0 +1,31 @@
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node / React
+node_modules/
+build/
+dist/
+.env
+npm-debug.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+*.log
+docker-compose.override.yml
+
+# AI / Temp
+__pycache__/
+*.ipynb_checkpoints
