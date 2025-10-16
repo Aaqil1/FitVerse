@@ -1,0 +1,292 @@
+version: "3.8"
+
+x-common-env: &common-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/fitverse?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+  SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+  SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+  SPRING_REDIS_HOST: redis
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: fitverse-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - fitverse-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: fitverse-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    networks:
+      - fitverse-net
+
+  mysql:
+    image: mysql:8.3
+    container_name: fitverse-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: fitverse
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    networks:
+      - fitverse-net
+
+  redis:
+    image: redis:7
+    container_name: fitverse-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fitverse-net
+
+  minio:
+    image: minio/minio:RELEASE.2024-02-26T09-33-48Z
+    container_name: fitverse-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - fitverse-net
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: fitverse-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    networks:
+      - fitverse-net
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: fitverse-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_DEFAULT_THEME: light
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - fitverse-net
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: fitverse-api-gateway
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+      - mysql
+      - redis
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: fitverse-auth-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mysql
+      - kafka
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  user-profile-service:
+    build:
+      context: ./user-profile-service
+    container_name: fitverse-user-profile-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mysql
+      - kafka
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  foodvision-service:
+    build:
+      context: ./foodvision-service
+    container_name: fitverse-foodvision-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - minio
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  calorie-tracker-service:
+    build:
+      context: ./calorie-tracker-service
+    container_name: fitverse-calorie-tracker-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8084
+    ports:
+      - "8084:8084"
+    depends_on:
+      - kafka
+      - mysql
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  fitness-recommendation-service:
+    build:
+      context: ./fitness-recommendation-service
+    container_name: fitverse-fitness-recommendation-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8085
+    ports:
+      - "8085:8085"
+    depends_on:
+      - kafka
+      - mysql
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  chatbot-service:
+    build:
+      context: ./chatbot-service
+    container_name: fitverse-chatbot-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8086
+    ports:
+      - "8086:8086"
+    depends_on:
+      - kafka
+      - redis
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: fitverse-notification-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8087
+    ports:
+      - "8087:8087"
+    depends_on:
+      - kafka
+      - redis
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+    container_name: fitverse-analytics-service
+    env_file: .env
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8088
+    ports:
+      - "8088:8088"
+    depends_on:
+      - kafka
+      - mysql
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+  frontend-react:
+    build:
+      context: ./frontend-react
+    container_name: fitverse-frontend
+    env_file: .env
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - fitverse-net
+    profiles: ["services"]
+
+networks:
+  fitverse-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  minio_data:
+  grafana_data:
